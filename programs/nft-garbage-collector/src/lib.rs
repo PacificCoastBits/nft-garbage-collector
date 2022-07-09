@@ -10,7 +10,7 @@ pub mod nft_garbage_collector {
 
     pub fn initialize_garbage_collection(ctx: Context<InitializeGarbageCollection>, should_mint_ticket: bool) -> Result<()> {
         //TODO
-        //----- 0. Confirm Token is NFT (This could probaby get moved to a helper func)
+        //----- 0. Confirm Token is NFT (This could probaby get moved to a helper func) // I should probably do this with the js client
         let nft_account = &ctx.accounts.initializer_nft_account;
         let user = &ctx.accounts.initializer;
         let nft_mint_account = &ctx.accounts.initializer_nft_mint_account;
@@ -45,8 +45,28 @@ pub mod nft_garbage_collector {
             return Err(ErrorCode::AccountNotInitialized.into())
         }
 
-        //1. Transfer the NFT to the Garbage Wallet, with optional msg?
-        //2. If should_mint_ticket Mint an museum Ticket/Recipt for the user
+        //1. Transfer the NFT to the Garbage Wallet, with optional msg? // I should probably do this with the js client
+        
+        // I may need to create the Associated Token Transfer Account in the "Garbage Wallet first.."
+
+
+        //Create the Transfer Instruction
+        let transfer_instruction = Transfer{
+            from: ctx.accounts.initializer_nft_account.to_account_info(),
+            to: ctx.accounts.garbage_account.to_account_info(), // this should be an associated token accout I think I may need to make it for the garbage account wallet
+            authority: ctx.accounts.signer.to_account_info(),
+        };
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+
+        //Create Transfer Request Context
+        let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+
+        //Invoke Anchors Transfer function (TODO: Move this to impl)
+        anchor_spl::token::transfer(cpi_ctx, 1);
+
+
+        //2. If should_mint_ticket Mint an museum Ticket/Recipt for the user // I should maybe do this with the js client ?
 
         Ok(())
     }
@@ -71,6 +91,10 @@ pub struct InitializeGarbageCollection<'info> {
     pub initializer_nft_account: Account<'info, TokenAccount>,
     // The account that holds the nft metadata
     pub nft_metadata_account: AccountInfo<'info>,
+    // The Garbage Account - Note this should probably be garbage_account_nft_account.. I'll probably need to create the associated nft account before sending..
+    pub garbage_account: AccountInfo<'info>,
+    //Signer/Authority for Transaction
+    pub signer: Signer<'info>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     #[account(address = metadata_program_id)]
